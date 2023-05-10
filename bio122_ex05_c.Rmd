@@ -1,0 +1,70 @@
+---
+title: "Exercise 5C. Heart Rate and Exercise"
+author: "Espinosa & Madrid"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+```{r}
+
+library(tidyverse)
+library(ggpubr)
+
+```
+
+# DATA
+```{r}
+
+#  isolates columns for the heart rate during exercise 
+ex <- bpm %>%
+  select(Warmup.End, First.2min, Second.2min, Third.2min, Fourth.2min, Fifth.2min,
+         CD.End, CD.2min, CD.4min, CD.6min, Time.RestRate, Time.RestRate.NoCD) %>%
+  drop_na()
+
+head(ex, n = 5)
+
+```
+
+
+
+## Exploring Data
+```{r}
+
+#  re-organizes data for plotting
+ex.prog <- ex %>%
+  select(Warmup.End, First.2min, Second.2min, Third.2min, Fourth.2min, Fifth.2min,
+         CD.End, CD.2min, CD.4min, CD.6min, Time.RestRate, Time.RestRate.NoCD) %>%
+  gather(Progress, BPM, Warmup.End, First.2min, Second.2min, Third.2min,
+         Fourth.2min, Fifth.2min, CD.End, CD.2min, CD.4min, CD.6min) %>%
+  gather(CD, BPM.CD, Time.RestRate, Time.RestRate.NoCD) %>%
+  mutate(CD = gsub("Time.RestRate.NoCD", "No CD", CD),
+         CD = gsub("Time.RestRate", "With CD", CD)) 
+
+head(ex.prog, n = 5)
+
+#  generates line plot showing mean throughout exercise progress
+ex.plot <- ggline(ex.prog, x = "Progress", y = "BPM", 
+                  add = c("mean_se", "jitter"), 
+                  order = c("Warmup.End", "First.2min", "Second.2min", "Third.2min", 
+                            "Fourth.2min", "Fifth.2min", "CD.End", "CD.2min", "CD.4min", "CD.6min"),
+                  ylab = "Heart Rate (BPM)", xlab = "Exercise Progress") + 
+  scale_x_discrete(labels = c("End of Warm up", "1st two min.", "2nd two min.", 
+                              "3rd two min.", "4th two min.", "5th two min.",
+                              "Cool Down End", "CD (2 min)", 
+                              "CD (4 min)", "CD (6 min)")) +
+  font("xy.text", size = 9)
+
+ggsave("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/figures/line.png",
+       width = 15, height = 8)
+
+ex.plot
+
+#  generates box plot BPM with CD vs. without CD
+cd.plot <- ggplot(ex.prog, aes(CD, BPM.CD)) + geom_boxplot()
+cd.plot
+
+```

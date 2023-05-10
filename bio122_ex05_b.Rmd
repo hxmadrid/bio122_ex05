@@ -1,0 +1,184 @@
+---
+title: "Exercise 5B. Resting Heart Rate and Body Positions"
+author: "Espinosa & Madrid"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+
+
+```{r}
+
+library(tidyverse)
+library(car)
+library(ggpubr)
+library(rstatix)
+
+```
+
+
+# 1. DATA
+```{r}
+
+#  imports data into R
+bpm <- read.csv("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/data/bpm.csv")
+head(bpm)
+
+```
+
+## Exploring Data
+```{r}
+
+#  cleans data
+## for summary of data
+p <- bpm %>%
+  select(Fitness, Lying.Down, Sitting.Down, Standing.Up, Standing.Bend) %>%
+  drop_na() %>%
+  mutate(Fitness = gsub("Non-athletic", "Non-Athletic", Fitness), 
+         Fitness = gsub("Non- athletic", "Non-Athletic", Fitness),
+         Fitness = gsub("\\ ", "", Fitness))
+
+head(p)
+summary(p)
+
+### position bpm for non-athletic
+p.non <- p %>%
+  select(Fitness, Lying.Down, Sitting.Down, Standing.Up, Standing.Bend) %>%
+  filter(Fitness == "Non-athletic" | Fitness == "Non-Athletic")
+
+summary(p.non)
+
+### position bpm for athletic
+p.ath <- p %>%
+  select(Fitness, Lying.Down, Sitting.Down, Standing.Up, Standing.Bend) %>%
+  filter(Fitness == "Athletic")
+
+summary(p.ath)
+
+
+## gathers positions into one column
+f <- bpm %>%
+  drop_na() %>%
+  select(Fitness, Lying.Down, Sitting.Down, Standing.Up, Standing.Bend) %>%
+  gather(Position, BPM, Lying.Down, Sitting.Down, Standing.Up, Standing.Bend) %>%
+  mutate(Fitness = gsub("Non-athletic", "Non-Athletic", Fitness), 
+         Fitness = gsub("\\ ", "", Fitness))
+
+head(f)
+
+# plots 
+f.plot <- ggplot(f, aes(Position, BPM)) + geom_boxplot() + 
+  ylab("Heart Rate (BPM)") + 
+  scale_x_discrete(labels = c("Lying Down", "Sitting Down", "Standing Up",
+                              "Standing Forward Bend"))
+f.plot
+
+## between fitness
+p.plot <- ggplot(f, aes(Position, BPM, color = Fitness)) + geom_boxplot() +
+  ylab("Heart Rate (BPM)") + 
+  scale_x_discrete(labels = c("Lying Down", "Sitting Down", "Standing Up",
+                              "Standing Forward Bend")) +
+  stat_summary(fun = mean, geom = 'point', shape = 18, size = 2, 
+               position = position_dodge2(width = 0.75, preserve = "single")) +
+  scale_color_manual(values = c("orangered4", "steelblue4"))
+
+ggsave("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/figures/fitplot.png", 
+       width = 8, height = 6)
+
+p.plot
+
+```
+
+# 2. T-TEST
+
+## 2a. Test for normality of distribution 
+```{r}
+
+## Shapiro-Wilk normality Test
+#  Lying Down
+shapiro.test(p$Lying.Down[p$Fitness == "Non-Athletic"]) # p = 0.02; not normal 
+shapiro.test(p$Lying.Down[p$Fitness == "Athletic"]) # p = 0.08; normal 
+
+#  Sitting Down
+shapiro.test(p$Sitting.Down[p$Fitness == "Non-Athletic"]) # p = 0.002; not normal 
+shapiro.test(p$Sitting.Down[p$Fitness == "Athletic"]) # p = 0.7; normal 
+
+#  Standing Up
+shapiro.test(p$Standing.Up[p$Fitness == "Non-Athletic"]) # p = 0.004; not normal
+shapiro.test(p$Standing.Up[p$Fitness == "Athletic"]) # p = 0.04; not normal
+
+#  Standing Forward Bend
+shapiro.test(p$Standing.Bend[p$Fitness == "Non-Athletic"]) # p = 0.0006; not normal 
+shapiro.test(p$Standing.Bend[p$Fitness == "Athletic"]) # p = 0.6; normal 
+
+```
+
+
+## 2b. Test for homogeneity in variances
+```{r}
+## homoscedasticity
+#  Lying Down
+leveneTest(p$Lying.Down ~ Fitness, p) # p > 0.05; assume equality of variance
+
+#  Sitting Down 
+leveneTest(p$Sitting.Down ~ Fitness, p) # p > 0.05; assume equality of variance
+
+#  Standing Up
+leveneTest(p$Standing.Up ~ Fitness, p) # p > 0.05; assume equality of variance
+
+#  Standing Forward Bend
+leveneTest(p$Standing.Bend ~ Fitness, p) # p > 0.05; assume equality of variance
+
+```
+
+
+## 2c. Non-parametric and parametric T-test
+```{r}
+## Unpaired Two-samples Wilcoxon Test
+#  Lying Down
+ld.ttest <- t.test(p$Lying.Down ~ Fitness, data = p, 
+                   alternative = "two.sided", paired = FALSE, var.equal = TRUE)
+ld.ttest #  p > 0.05; accept Ho
+
+ld.wx <- wilcox.test(p$Lying.Down ~ Fitness, data = p, 
+                     exact = FALSE)
+ld.wx    #  p > 0.05; accept Ho
+
+
+#  Sitting Down
+sd.ttest <- t.test(p$Sitting.Down ~ Fitness, data = p, 
+                   alternative = "two.sided", paired = FALSE, var.equal = TRUE)
+sd.ttest #  p > 0.05; accept Ho
+
+sd.wx <- wilcox.test(p$Sitting.Down ~ Fitness, data = p, 
+                     exact = FALSE)
+sd.wx    #  p > 0.05; accept Ho
+
+
+#  Standing Up
+su.ttest <- t.test(p$Standing.Up ~ Fitness, data = p, 
+                   alternative = "two.sided", paired = FALSE, var.equal = TRUE)
+su.ttest #  p > 0.05; accept Ho
+
+su.wx <- wilcox.test(p$Standing.Up ~ Fitness, data = p, 
+                     exact = FALSE)
+su.wx    #  p > 0.05; accept Ho
+
+
+#  Standing Forward Bend
+sfb.ttest <- t.test(p$Standing.Bend ~ Fitness, data = p, 
+                   alternative = "two.sided", paired = FALSE, var.equal = TRUE)
+sfb.ttest #  p > 0.05; accept Ho
+
+sfb.wx <- wilcox.test(p$Standing.Bend ~ Fitness, data = p, 
+                     exact = FALSE)
+sfb.wx    #  p > 0.05; accept Ho
+```
+
+
+
+
+
