@@ -13,12 +13,20 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 
 library(tidyverse)
 library(ggpubr)
+library(car)
 
 ```
 
-# DATA
+# 1. DATA
 ```{r}
 
+#  imports data into R
+bpm <- read.csv("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/data/bpm.csv")
+head(bpm)
+
+```
+
+```{r}
 #  isolates columns for the heart rate during exercise 
 ex <- bpm %>%
   select(Warmup.End, First.2min, Second.2min, Third.2min, Fourth.2min, Fifth.2min,
@@ -27,11 +35,21 @@ ex <- bpm %>%
 
 head(ex, n = 5)
 
+ex %>%
+  summarise(
+    SD.NoCD = sd(Time.RestRate.NoCD),
+    Range.NoCD = range(Time.RestRate.NoCD),
+    Mean.NoCD = mean(Time.RestRate.NoCD),
+    SD.WithCD = sd(Time.RestRate),
+    Range.WithCD = range(Time.RestRate),
+    Mean.WithCD = mean(Time.RestRate)
+  )
+
 ```
 
 
 
-## Exploring Data
+## Exploring Data & Plots
 ```{r}
 
 #  re-organizes data for plotting
@@ -40,7 +58,7 @@ ex.prog <- ex %>%
          CD.End, CD.2min, CD.4min, CD.6min, Time.RestRate, Time.RestRate.NoCD) %>%
   gather(Progress, BPM, Warmup.End, First.2min, Second.2min, Third.2min,
          Fourth.2min, Fifth.2min, CD.End, CD.2min, CD.4min, CD.6min) %>%
-  gather(CD, BPM.CD, Time.RestRate, Time.RestRate.NoCD) %>%
+  gather(CD, Time.CD, Time.RestRate, Time.RestRate.NoCD) %>%
   mutate(CD = gsub("Time.RestRate.NoCD", "No CD", CD),
          CD = gsub("Time.RestRate", "With CD", CD)) 
 
@@ -54,8 +72,8 @@ ex.plot <- ggline(ex.prog, x = "Progress", y = "BPM",
                   ylab = "Heart Rate (BPM)", xlab = "Exercise Progress") + 
   scale_x_discrete(labels = c("End of Warm up", "1st two min.", "2nd two min.", 
                               "3rd two min.", "4th two min.", "5th two min.",
-                              "Cool Down End", "CD (2 min)", 
-                              "CD (4 min)", "CD (6 min)")) +
+                              "End of Cooldown", "2 min. After CD", 
+                              "4 min. After CD", "6 min. After CD")) +
   font("xy.text", size = 9)
 
 ggsave("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/figures/line.png",
@@ -64,7 +82,61 @@ ggsave("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 
 ex.plot
 
 #  generates box plot BPM with CD vs. without CD
-cd.plot <- ggplot(ex.prog, aes(CD, BPM.CD)) + geom_boxplot()
+cd.plot <- ggplot(ex.prog, aes(CD, Time.CD)) + geom_boxplot() + 
+  labs(y = "Time to Resting Heart Rate (minutes)",
+       x = "Cooldown") + 
+  scale_x_discrete(labels = c("No Cooldown", "With Cooldown"))
+
+ggsave("C:/Users/Xyrine/Documents/School Stuff/BS BIO 4th Year/1st Semester/BIO 118/Module 1/Module 1 - Laboratory Exercise/bio118-class/exercises/bio122_ex05/figures/cd.png",
+       width = 8, height = 6)
+
 cd.plot
 
 ```
+
+
+# 2. T-TEST
+
+## 2a. Test for normality of distribution 
+```{r}
+
+## Shapiro-Wilk normality Test
+
+shapiro.test(ex.prog$Time.CD[ex.prog$CD == "No CD"]) #  p = 1.194386e-19
+# p < 0.05; not normal 
+shapiro.test(ex.prog$Time.CD[ex.prog$CD == "With CD"]) # p = 2.541089e-18
+# p < 0.05; not normal 
+
+
+```
+
+
+## 2b. Test for homogeneity in variances
+```{r}
+## homoscedasticity
+
+leveneTest(Time.CD ~ CD, ex.prog)   #  p = 0.5698
+# p > 0.05; assume equality of variance
+
+
+```
+
+
+
+## 2c. Non-parametric and parametric T-test
+```{r}
+## Unpaired Two-samples Wilcoxon Test
+
+#  wilcoxon
+wx.cd <- wilcox.test(Time.CD ~ CD, data = ex.prog, 
+                     exact = FALSE)
+wx.cd$p.value    #  p = 6.90694e-51; p < 0.05; reject Ho
+
+#  t-test
+ttest.cd <- t.test(Time.CD ~ CD, data = ex.prog, 
+                   alternative = "two.sided", paired = FALSE, var.equal = TRUE)
+ttest.cd$p.value #  p = 1.270444e-54; p < 0.05; reject Ho
+
+
+```
+
